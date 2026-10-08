@@ -1,0 +1,700 @@
+{
+  "name": "Pro AI S9 Multi Step - Upgraded",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Customer Support Request",
+        "formDescription": "Multi Step Agent",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Customer Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Customer Email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Order ID",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Message",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -912,
+        992
+      ],
+      "id": "15eb3fc2-dd08-4b06-a029-f6e21af12893",
+      "name": "On form submission",
+      "webhookId": "d8d2dd80-2575-45b3-97f9-bd4d66740ba1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=A customer wrote in.\nName: {{ $json['Customer Name'] }}\nEmail: {{ $json['Customer Email'] }}\nOrder ID: {{ $json['Order ID'] }}\n\nMessage:\n{{ $json.Message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a support triage agent. Do this everytime:\n1. If an Order ID is given, use the Order lookup tool to fetch its status/ amount/ship_date.\n2. Use the Calculator tool for any refund/discount do not do arithmetic directly.\n3. Classify the request: priority (high/moderate/low) and a short category.\n4 Set needs_human = true for refunds, complaints anything over PKR 20,000, legal/press, or when unsure.\n5. Draft a warm, concise reply the customer could receive as-is. Never invent order facts, only use tool results.\nReturn ONLY the structured fields requested, no extra prose.\n6. If Order ID does not match with our records give the results accordingly, and make order_exists = false, needs_human = false.\n7. If ship_date is of more than 14 Days back, we will not refund or replace the product, if it is under the duration of 14 days we will accomodate the complaint, add this policy in the draft as well and make needs_human = false.",
+          "maxIterations": 3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -672,
+        992
+      ],
+      "id": "bf82078a-3784-4d38-b0d2-a8e04872b264",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -896,
+        1232
+      ],
+      "id": "760e771e-c3e3-47f5-9b81-80bb2154457f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "vpxla1THJ1kcnT37",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n    \"type\": \"object\",\n    \"properties\": {\n        \"priority\": {\n            \"type\": \"string\",\n            \"enum\":\n              [\"high\", \"moderate\", \"low\"]\n        },\n        \"category\": {\n            \"type\": \"string\"\n        },\n        \"needs_human\":{\n          \"type\": \"boolean\"\n        },\n        \"order_exists\":{\n          \"type\": \"boolean\"\n        },\n        \"reason\": {\n          \"type\": \"string\"\n        },\n        \"draft_reply\": {\n          \"type\": \"string\"\n        }\n    },\n  \"required\": [\"priority\",\"category\",\"needs_human\", \"order_exists\",\"reason\",\"draft_reply\"]\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        1232
+      ],
+      "id": "481b2a58-c931-4949-a81e-b9d813fcd0c7",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        1264
+      ],
+      "id": "d655d48b-937f-4cf5-aa42-98e9534c31ad",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "xAYN7kegPCN2ZFZL",
+          "mode": "list",
+          "cachedResultName": "Orders",
+          "cachedResultUrl": "/projects/1TWUjtFOYsBvOaeo/datatables/xAYN7kegPCN2ZFZL"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "={{ $json['Customer Name'] }}",
+              "condition": "={{ $json['Customer Email'] }}",
+              "keyValue": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('conditions0_Value', ``, 'string') }}"
+            },
+            {
+              "keyName": "={{ $json['Order ID'] }}",
+              "condition": "={{ $json.Message }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTableTool",
+      "typeVersion": 1.1,
+      "position": [
+        -672,
+        1248
+      ],
+      "id": "7e80cc94-7678-4e06-9838-13110cc8624c",
+      "name": "Order Lookup Tool"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ba928f25-8850-4ed6-8e7d-fe36b4909858",
+              "name": "priority",
+              "value": "={{ $json.output.priority }}",
+              "type": "string"
+            },
+            {
+              "id": "e48b5b92-c370-4607-bc7f-46288f9d2eff",
+              "name": "category",
+              "value": "={{ $json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "30cba466-930c-43a9-9ecc-908b29a114f2",
+              "name": "needs_human",
+              "value": "={{ $json.output.needs_human }}",
+              "type": "boolean"
+            },
+            {
+              "id": "38e801ef-a0f5-4763-aec1-70f32675ca13",
+              "name": "order_exists",
+              "value": "={{ $json.output.order_exists }}",
+              "type": "boolean"
+            },
+            {
+              "id": "c39491ba-12c1-462c-8fd3-1debb7c6d688",
+              "name": "reason",
+              "value": "={{ $json.output.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "d9601dda-a235-4c7a-aa09-5ef57cfe9a45",
+              "name": "draft_reply",
+              "value": "={{ $json.output.draft_reply }}",
+              "type": "string"
+            },
+            {
+              "id": "687fad95-ca1c-4432-a951-773602d13746",
+              "name": "status",
+              "value": "opened",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -48,
+        992
+      ],
+      "id": "60cc3326-a1d9-4bb0-99a1-ef27700c2f11",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c2470ed7-d286-4ad3-9bcf-40117886de3a",
+              "leftValue": "={{ $json.needs_human }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        176,
+        992
+      ],
+      "id": "a5220da8-6119-4349-8f8a-2c2557dda9d5",
+      "name": "needs human"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('On form submission').item.json[\"Customer Email\"] }}",
+        "subject": "={{ $json.category }}",
+        "emailType": "text",
+        "message": "={{ $json.draft_reply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        1088
+      ],
+      "id": "2bd8b852-5866-4ef3-aa88-cb604434dd42",
+      "name": "Send a message",
+      "webhookId": "bbf969d7-cf0c-4f5b-ae8d-654b72970aba",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2PAZ7QrT6msIuw1g",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "8g7DCurZjXB3OTfr",
+          "mode": "list",
+          "cachedResultName": "support logs",
+          "cachedResultUrl": "/projects/1TWUjtFOYsBvOaeo/datatables/8g7DCurZjXB3OTfr"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer": "={{ $('On form submission').item.json[\"Customer Email\"] }}",
+            "time": "={{ $('On form submission').item.json.submittedAt }}",
+            "priority": "={{ $('AI Agent').item.json.output.priority }}",
+            "category": "={{ $('AI Agent').item.json.output.category }}",
+            "status": "={{ $json.status }} "
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer",
+              "displayName": "customer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        1024
+      ],
+      "id": "c0600337-cc3f-44d8-a06b-b4a5877db73a",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "hassan230404@gmail.com",
+        "subject": "=Approve Support reply -  {{ $json.priority }}|| {{ $json.category }}",
+        "message": "=Customer:  {{ $('On form submission').item.json[\"Customer Name\"] }} ({{ $('On form submission').item.json[\"Customer Email\"] }})\n\nReason: {{ $json.reason }}\n\nDraft of Reply:\n{{ $json.draft_reply }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        832
+      ],
+      "id": "e5fafdc7-beca-41c8-9f9b-fd07aa47b409",
+      "name": "Send message and wait for response",
+      "webhookId": "ab285250-aebb-48b9-b472-a798217d1a61",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2PAZ7QrT6msIuw1g",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0f0cd8dd-cf54-4341-a292-3389919fb0b0",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        832
+      ],
+      "id": "54f0be1c-ea1f-46c5-a9c0-4468ce9c9397",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fromEmail": "huzaifaghori000@gmail.com",
+        "toEmail": "={{ $('On form submission').item.json[\"Customer Email\"] }}",
+        "subject": "={{ $('Edit Fields').item.json.category }}",
+        "emailFormat": "text",
+        "text": "={{ $('Edit Fields').item.json.draft_reply }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1088,
+        576
+      ],
+      "id": "4f2be19e-7886-46d4-b396-f2542022c50b",
+      "name": "Send an Email1",
+      "webhookId": "c36e4590-a956-4ddb-bc93-23f1c37a79fe",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d78daa8e-d405-49b4-a7cd-5ab73579f654",
+              "name": "status",
+              "value": "closed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1312,
+        592
+      ],
+      "id": "ba31c098-a6ac-470e-8b6a-13b2af8a4808",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b2be83c6-ae15-4e31-9ef1-60daec85434e",
+              "name": "status",
+              "value": "triaged",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        944,
+        832
+      ],
+      "id": "55eafd4a-7cb6-4e4d-9934-51475ca98309",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "30b12e1f-02e2-4342-ae54-4cd1c713bcbf",
+              "name": "status",
+              "value": "closed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        624,
+        1088
+      ],
+      "id": "1bba890c-ff86-47e8-8590-87a41ed81452",
+      "name": "Edit Fields4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Lookup Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "needs human",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "needs human": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send an Email1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields4": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6b6bcfc7-d4c3-4764-9331-6b34bea12c1b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bf74bee4467f6c403c12b568e33e703e77303d951ece18ce157154bf4746878f"
+  },
+  "nodeGroups": [],
+  "id": "t8UgDdfBqgRWfFBm",
+  "tags": []
+}
